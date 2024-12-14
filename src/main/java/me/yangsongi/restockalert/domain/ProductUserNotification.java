@@ -37,4 +37,8 @@ public class ProductUserNotification {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    public void setIsActive(boolean isActive) {
+        this.isActive = isActive;
+    }
+
 }

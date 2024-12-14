@@ -10,6 +10,8 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Table(name = "product_user_notification_history")
 public class ProductUserNotificationHistory {
 
