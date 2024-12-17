@@ -66,7 +66,11 @@ public class ProductService {
 
         // 5. 유저들에게 알림 전송
         Long newLastUserId = lastUserId;  // 마지막으로 알림을 보낸 유저 ID
-        for (ProductUserNotification userNotification : filteredUserNotifications) {
+        int batchSize = 500;  // 1초에 500개 요청 전송
+
+        for (int i = 0; i < filteredUserNotifications.size(); i++) {
+            ProductUserNotification userNotification = filteredUserNotifications.get(i);
+
             // 재고가 모두 소진된 경우, 알림 전송 중단
             if (product.getStockStatus().equals("OUT_OF_STOCK")) {
                 notificationHistory.setNotificationStatus("CANCELED_BY_SOLD_OUT");
@@ -76,22 +80,36 @@ public class ProductService {
                 break;  // 알림 전송 중단
             }
 
-            // 알림 전송
-            sendNotificationToUser(userNotification);
+            try {
+                // 알림 전송
+                sendNotificationToUser(userNotification);
 
-            // 알림 전송 성공 시, 알림 히스토리 저장
-            ProductUserNotificationHistory userNotificationHistory = ProductUserNotificationHistory.builder()
-                    .product(product)
-                    .userId(userNotification.getUserId())
-                    .restockCount(restockCount)
-                    .sentAt(LocalDateTime.now())
-                    .build();
-            userNotificationHistoryRepository.save(userNotificationHistory);
+                // 알림 전송 성공 시, 알림 히스토리 저장
+                ProductUserNotificationHistory userNotificationHistory = ProductUserNotificationHistory.builder()
+                        .product(product)
+                        .userId(userNotification.getUserId())
+                        .restockCount(restockCount)
+                        .sentAt(LocalDateTime.now())
+                        .build();
+                userNotificationHistoryRepository.save(userNotificationHistory);
 
-            // 알림 전송 상태 업데이트
-            notificationHistory.setLastUserId(userNotification.getUserId());
-            notificationHistoryRepository.save(notificationHistory);
-            newLastUserId = userNotification.getUserId(); // 마지막 유저 ID 갱신
+                // 알림 전송 상태 업데이트
+                notificationHistory.setLastUserId(userNotification.getUserId());
+                notificationHistoryRepository.save(notificationHistory);
+                newLastUserId = userNotification.getUserId(); // 마지막 유저 ID 갱신
+
+                // 500명마다 잠시 대기 (1초에 500개 요청)
+                if ((i + 1) % batchSize == 0) {
+                    Thread.sleep(1000);  // 1초 대기
+                }
+            } catch (Exception e) {
+                // 예외 발생 시 상태를 'CANCELED_BY_ERROR'로 변경하고 로그를 기록
+                notificationHistory.setNotificationStatus("CANCELED_BY_ERROR");
+                notificationHistory.setLastUserId(userNotification.getUserId());
+                notificationHistoryRepository.save(notificationHistory);
+                System.err.println("Error occurred while sending notification: " + e.getMessage());
+                break;  // 알림 전송 중단
+            }
         }
 
         // 6. 알림 전송 완료 처리
@@ -101,6 +119,7 @@ public class ProductService {
         // 마지막 유저 ID를 포함한 응답 반환
         return new ApiResponse("success", "Restock notification sent successfully.", productId, restockCount, newLastUserId);
     }
+
 
     // 유저에게 알림을 보내는 메서드 (실제 알림 전송 로직은 구현에 따라 다를 수 있음)
     public void sendNotificationToUser(ProductUserNotification userNotification) {
