@@ -11,5 +11,6 @@ public class ApiResponse {
     private String message;
     private Long productId;
     private int restockCount;
+    private Long lastUserId;
 
 }
